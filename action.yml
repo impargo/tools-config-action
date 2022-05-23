@@ -1,0 +1,51 @@
+name: 'setup deployment tools'
+description: 'Greet someone'
+inputs:
+  REGISTRY_USERNAME:
+    description: 'Docker registry username'
+    required: true
+  REGISTRY_PASSWORD:
+    description: 'Docker registry password'
+    required: true
+  CLIENT_KEY:
+    description: 'Cloud client key'
+    required: true
+  CLIENT_SECRET:
+    description: 'Cloud client secret'
+    required: true
+  TENANT_ID:
+    description: 'Cloud tenant ID'
+    required: true
+runs:
+  using: "composite"
+  steps:
+   - shell: bash
+     run: |
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 > get_helm.sh
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+        helm repo add stable https://charts.helm.sh/stable
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+   - name: Kubectl tool installer
+     uses: Azure/setup-kubectl@v1
+   
+   - name: Docker logins
+     run: docker login impargo.azurecr.io -u ${{ inputs.REGISTRY_USERNAME }} -p ${{ inputs.REGISTRY_PASSWORD }}
+     shell: bash
+
+   - name: Install skaffold
+     shell: bash
+     run: |
+       curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
+       chmod +x skaffold
+       sudo mv skaffold /usr/local/bin
+   - name: Login to azure
+     run: az login --service-principal -u ${{ inputs.CLIENT_KEY }} -p ${{ inputs.CLIENT_SECRET }} --tenant ${{ inputs.TENANT_ID }}
+     shell: bash
+   - name: Sops Binary Installer
+     uses: mdgreenwald/mozilla-sops-action@v1
+     with:
+       version: "v3.7.1"
+   - name: Install helm secrets plugin
+     shell: bash
+     run: helm plugin install https://github.com/jkroepke/helm-secrets --version v3.8.2
